@@ -1,0 +1,25 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:orderdb}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+
+storex:
+  env: ${APP_ENV:dev}
+  user-service:
+    url: ${USER_SERVICE_URL:http://localhost:8081}
+  logstash:
+    destination: ${LOGSTASH_DESTINATION:localhost:5000}
+
+logging:
+  level:
+    com.storex: DEBUG

@@ -1,0 +1,105 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: storex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  user-service:
+    build:
+      context: .
+      args:
+        SERVICE: user-service
+    image: storex-user-service
+    container_name: storex-user-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      logstash:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_NAME: userdb
+      LOGSTASH_DESTINATION: logstash:5000
+      JAVA_TOOL_OPTIONS: -Xmx200m
+    ports:
+      - "127.0.0.1:8081:8081"
+
+  order-service:
+    build:
+      context: .
+      args:
+        SERVICE: order-service
+    image: storex-order-service
+    container_name: storex-order-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      logstash:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_NAME: orderdb
+      USER_SERVICE_URL: http://user-service:8081
+      LOGSTASH_DESTINATION: logstash:5000
+      JAVA_TOOL_OPTIONS: -Xmx200m
+    ports:
+      - "127.0.0.1:8082:8082"
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.0
+    container_name: storex-logstash
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+      - XPACK_MONITORING_ENABLED=false
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      # Mount ca thu muc (khong mount tung file) de sua logstash.conf roi restart la nhan
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+    container_name: storex-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.0
+    container_name: storex-kibana
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:5601:5601"
+
+volumes:
+  pgdata:
+  esdata:

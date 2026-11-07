@@ -1,0 +1,26 @@
+<configuration>
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="storex"/>
+    <springProperty scope="context" name="APP_ENV" source="storex.env" defaultValue="dev"/>
+    <springProperty scope="context" name="LOGSTASH_DEST" source="storex.logstash.destination" defaultValue="localhost:5000"/>
+
+    <!-- Console: dang plaintext de doc bang docker logs -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Gui log JSON (moi dong la mot JSON object, ket thuc bang newline) toi Logstash qua TCP -->
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>${LOGSTASH_DEST}</destination>
+        <reconnectionDelay>5 seconds</reconnectionDelay>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"app_name":"${APP_NAME}","env":"${APP_ENV}"}</customFields>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="LOGSTASH"/>
+    </root>
+</configuration>
